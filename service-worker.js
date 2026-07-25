@@ -1,4 +1,4 @@
-const CACHE_NAME = "karen-vargas-atelier-pwa-v1";
+const CACHE_NAME = "karen-vargas-atelier-pwa-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
