@@ -17,7 +17,7 @@ const ATELIER_HEADERS = {
   Configuracion: ["clave", "valor", "descripcion"]
 };
 
-const ATELIER_SCHEMA_VERSION = "2026-07-25.5";
+const ATELIER_SCHEMA_VERSION = "2026-07-25.6";
 const ATELIER_NUMERIC_FIELDS = ["valorTotal", "primerAbono", "saldoPendiente", "monto", "costoTotal", "porcentajeGanancia", "valorGanancia", "precioSugerido", "ajuste", "precioFinal", "porcentajeAbono", "abonoRequerido", "vigenciaDias", "costoUnitario"];
 const ATELIER_DATE_FIELDS = ["fechaRegistro", "fechaEvento", "fechaLimitePago", "fechaEntrega", "fechaCreacion", "fechaActualizacion", "fechaPago", "fecha"];
 const ATELIER_TIME_FIELDS = ["hora"];
@@ -952,7 +952,7 @@ function readRows_(name) {
       return headers.reduce(function(record, header, index) {
         const actualIndex = actualHeaders.indexOf(header);
         let value = actualIndex >= 0 ? row[actualIndex] : "";
-        if (header === "telefono" && isSpreadsheetError_(value)) value = "";
+        if (header === "telefono" && isSpreadsheetError_(value)) value = "Revisar número";
         if (ATELIER_DATE_FIELDS.indexOf(header) >= 0) value = formatDate_(value);
         if (ATELIER_TIME_FIELDS.indexOf(header) >= 0) value = formatTime_(value);
         if (ATELIER_MONTH_FIELDS.indexOf(header) >= 0) value = formatMonth_(value);
@@ -1183,9 +1183,13 @@ function repairCorruptedClientPhones_() {
 
 function recoverPhoneFromFormula_(formula) {
   const text = String(formula || "").trim();
-  if (text.indexOf("=+") !== 0) return "";
-  const recovered = text.slice(1);
-  return /^\+\d[\d\s().-]*$/.test(recovered) ? recovered : "";
+  if (!/^=\+?\d[\d\s().-]*$/.test(text)) return "";
+
+  // Sheets normaliza una entrada que comienza por "+" como una fórmula que
+  // puede empezar por "=+" o simplemente por "=". Restauramos siempre el "+"
+  // internacional y conservamos intactos espacios, paréntesis, puntos y guiones.
+  const phoneBody = text.slice(text.indexOf("=+") === 0 ? 2 : 1);
+  return "+" + phoneBody;
 }
 
 function isSpreadsheetError_(value) {
