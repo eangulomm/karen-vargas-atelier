@@ -17,7 +17,7 @@ const ATELIER_HEADERS = {
   Configuracion: ["clave", "valor", "descripcion"]
 };
 
-const ATELIER_SCHEMA_VERSION = "2026-07-20.4";
+const ATELIER_SCHEMA_VERSION = "2026-07-25.7";
 const ATELIER_NUMERIC_FIELDS = ["valorTotal", "primerAbono", "saldoPendiente", "monto", "costoTotal", "porcentajeGanancia", "valorGanancia", "precioSugerido", "ajuste", "precioFinal", "porcentajeAbono", "abonoRequerido", "vigenciaDias", "costoUnitario"];
 const ATELIER_DATE_FIELDS = ["fechaRegistro", "fechaEvento", "fechaLimitePago", "fechaEntrega", "fechaCreacion", "fechaActualizacion", "fechaPago", "fecha"];
 const ATELIER_TIME_FIELDS = ["hora"];
@@ -403,6 +403,7 @@ function createCliente_(cliente) {
   clean.nombres = clean.nombres || clean.nombre;
   clean.apellidos = clean.apellidos || "";
   clean.nombre = [clean.nombres, clean.apellidos].filter(Boolean).join(" ").trim();
+  clean.telefono = normalizePhone_(clean.telefono);
   if (!clean.nombres) throw new Error("El nombre de la clienta es obligatorio.");
   if (!clean.telefono) throw new Error("El teléfono de la clienta es obligatorio.");
   const id = clean.id || makeId_("cli");
@@ -440,6 +441,7 @@ function updateCliente_(id, cliente) {
   clean.nombres = clean.nombres || clean.nombre;
   clean.apellidos = clean.apellidos || "";
   clean.nombre = [clean.nombres, clean.apellidos].filter(Boolean).join(" ").trim();
+  clean.telefono = normalizePhone_(clean.telefono);
   if (!clean.nombres) throw new Error("El nombre de la clienta es obligatorio.");
   if (!clean.telefono) throw new Error("El teléfono de la clienta es obligatorio.");
 
@@ -889,6 +891,8 @@ function setup_() {
     sheet.setFrozenRows(1);
   });
 
+  repairClientPhones_();
+
   const config = readRows_("Configuracion");
   if (!config.length) {
     appendRecord_("Configuracion", {
@@ -968,7 +972,9 @@ function appendRecord_(name, record) {
   const row = headers.map(function(header) {
     return normalizeValueForSheet_(header, record[header]);
   });
-  sheet.appendRow(row);
+  const rowIndex = sheet.getLastRow() + 1;
+  preparePhoneCellAsText_(sheet, rowIndex, headers);
+  sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
   clearRowsCache_(name);
   return record;
 }
@@ -997,6 +1003,7 @@ function updateRecord_(name, id, patch) {
   const row = headers.map(function(header) {
     return normalizeValueForSheet_(header, updated[header]);
   });
+  preparePhoneCellAsText_(getOrCreateSheet_(name), rowIndex, headers);
   getOrCreateSheet_(name).getRange(rowIndex, 1, 1, row.length).setValues([row]);
   clearRowsCache_(name);
   return updated;
@@ -1130,7 +1137,75 @@ function normalizeValueForSheet_(header, value) {
   if (ATELIER_DATE_FIELDS.indexOf(header) >= 0) return value ? formatDate_(value) : "";
   if (ATELIER_TIME_FIELDS.indexOf(header) >= 0) return value ? formatTime_(value) : "";
   if (ATELIER_MONTH_FIELDS.indexOf(header) >= 0) return value ? formatMonth_(value) : "";
+  if (header === "telefono") return normalizePhone_(value);
   return value == null ? "" : value;
+}
+
+function normalizePhone_(value) {
+  const original = String(value == null ? "" : value).trim();
+  if (!original) return "";
+
+  let digits = original.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.indexOf("00") === 0) digits = digits.slice(2);
+
+  // Celular colombiano escrito sin indicativo: 3226468572.
+  if (/^3\d{9}$/.test(digits)) digits = "57" + digits;
+
+  // Indicativo colombiano pegado con o sin "+" y con cualquier separación.
+  if (/^573\d{9}$/.test(digits)) {
+    return "+57 " + digits.slice(2, 5) + " " + digits.slice(5, 8) + " " + digits.slice(8);
+  }
+
+  // Otros números internacionales se conservan como texto seguro.
+  if (original.charAt(0) === "+" || /^00/.test(original)) return "+" + digits;
+  return digits;
+}
+
+function preparePhoneCellAsText_(sheet, rowIndex, headers) {
+  const phoneIndex = headers.indexOf("telefono");
+  if (phoneIndex < 0 || rowIndex < 2) return;
+  sheet.getRange(rowIndex, phoneIndex + 1).setNumberFormat("@");
+}
+
+function repairClientPhones_() {
+  const sheet = getOrCreateSheet_("Clientes");
+  const headers = getActualHeaders_(sheet);
+  const phoneIndex = headers.indexOf("telefono");
+  const rowCount = sheet.getLastRow() - 1;
+  if (phoneIndex < 0 || rowCount <= 0) return;
+
+  const range = sheet.getRange(2, phoneIndex + 1, rowCount, 1);
+  const values = range.getValues();
+  const displayed = range.getDisplayValues();
+  const formulas = range.getFormulas();
+  let repaired = false;
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const formula = String(formulas[index][0] || "").trim();
+    let source = values[index][0];
+
+    // Recupera entradas como "+57 322 6468572" que Sheets convirtió en fórmula.
+    if (formula) {
+      if (!/^=\+?\d[\d\s().-]*$/.test(formula)) continue;
+      source = formula.slice(1);
+    } else if (isSpreadsheetError_(displayed[index][0])) {
+      continue;
+    }
+
+    const normalized = normalizePhone_(source);
+    const cell = range.getCell(index + 1, 1);
+    cell.setNumberFormat("@");
+    if (!normalized) continue;
+    cell.setValue(normalized);
+    repaired = true;
+  }
+
+  if (repaired) clearRowsCache_("Clientes");
+}
+
+function isSpreadsheetError_(value) {
+  return /^#(?:ERROR|REF|VALUE|NAME|N\/A|NUM|DIV\/0|NULL)\b/i.test(String(value || "").trim());
 }
 
 function toNumber_(value) {
