@@ -19,10 +19,10 @@
   <link rel="stylesheet" href="css/variables.css?v=20260720-costos">
   <link rel="stylesheet" href="css/base.css?v=20260720-costos">
   <link rel="stylesheet" href="css/layout.css?v=20260721-logo">
-  <link rel="stylesheet" href="css/components.css?v=20260721-pwa1">
+  <link rel="stylesheet" href="css/components.css?v=20260725-auth-loader">
   <link rel="stylesheet" href="css/responsive.css?v=20260720-costos">
 </head>
-<body class="auth-locked">
+<body class="auth-locked app-booting">
   <section id="authGate" class="auth-gate" aria-labelledby="authTitle">
     <div class="auth-card">
       <img class="auth-logo" src="assets/logo-karen-vargas.png?v=20260721-logo" alt="Karen Vargas Atelier">
@@ -45,7 +45,7 @@
     </div>
   </section>
   <div id="toastHost" class="toast-host" aria-live="polite"></div>
-  <div id="loader" class="app-loader is-hidden" aria-live="assertive">
+  <div id="loader" class="app-loader" aria-live="assertive" aria-busy="true">
     <div class="loader-card">
       <span class="loader-spinner"></span>
       <p>Cargando atelier...</p>
@@ -307,7 +307,7 @@
   <script src="js/agenda.js?v=20260720-costos"></script>
   <script src="https://unpkg.com/jspdf@4.2.1/dist/jspdf.umd.min.js"></script>
   <script src="js/cotizaciones.js?v=20260720-pdf-real"></script>
-  <script src="js/app.js?v=20260720-login"></script>
+  <script src="js/app.js?v=20260725-auth-loader"></script>
   <script src="js/pwa.js?v=20260721-pwa1"></script>
 </body>
 </html>

@@ -868,6 +868,10 @@ body.auth-locked .app-shell {
   visibility: hidden;
 }
 
+body.app-booting .auth-gate {
+  visibility: hidden;
+}
+
 .auth-card {
   width: min(100%, 430px);
   padding: 38px;
@@ -935,11 +939,12 @@ body.auth-locked .app-shell {
 .app-loader {
   position: fixed;
   inset: 0;
-  z-index: 110;
+  z-index: 2100;
   display: grid;
   place-items: center;
   background: rgba(248, 244, 239, 0.74);
-  backdrop-filter: blur(7px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .loader-card {
