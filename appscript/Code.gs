@@ -17,7 +17,8 @@ const ATELIER_HEADERS = {
   Configuracion: ["clave", "valor", "descripcion"]
 };
 
-const ATELIER_SCHEMA_VERSION = "2026-07-25.7";
+const ATELIER_SCHEMA_VERSION = "2026-07-25.8";
+const ATELIER_PHONE_MIGRATION_VERSION = "2026-07-25.2";
 const ATELIER_NUMERIC_FIELDS = ["valorTotal", "primerAbono", "saldoPendiente", "monto", "costoTotal", "porcentajeGanancia", "valorGanancia", "precioSugerido", "ajuste", "precioFinal", "porcentajeAbono", "abonoRequerido", "vigenciaDias", "costoUnitario"];
 const ATELIER_DATE_FIELDS = ["fechaRegistro", "fechaEvento", "fechaLimitePago", "fechaEntrega", "fechaCreacion", "fechaActualizacion", "fechaPago", "fecha"];
 const ATELIER_TIME_FIELDS = ["hora"];
@@ -868,7 +869,9 @@ function deleteCita_(id) {
 function setup_() {
   if (ATELIER_SETUP_READY) return;
   const props = PropertiesService.getScriptProperties();
-  if (props.getProperty("ATELIER_SCHEMA_VERSION") === ATELIER_SCHEMA_VERSION) {
+  const schemaReady = props.getProperty("ATELIER_SCHEMA_VERSION") === ATELIER_SCHEMA_VERSION;
+  const phonesReady = props.getProperty("ATELIER_PHONE_MIGRATION_VERSION") === ATELIER_PHONE_MIGRATION_VERSION;
+  if (schemaReady && phonesReady) {
     ATELIER_SETUP_READY = true;
     return;
   }
@@ -908,7 +911,10 @@ function setup_() {
   }
 
   ATELIER_SETUP_READY = true;
-  props.setProperty("ATELIER_SCHEMA_VERSION", ATELIER_SCHEMA_VERSION);
+  props.setProperties({
+    ATELIER_SCHEMA_VERSION: ATELIER_SCHEMA_VERSION,
+    ATELIER_PHONE_MIGRATION_VERSION: ATELIER_PHONE_MIGRATION_VERSION
+  });
 }
 
 function getBook_() {
@@ -1187,8 +1193,9 @@ function repairClientPhones_() {
 
     // Recupera entradas como "+57 322 6468572" que Sheets convirtió en fórmula.
     if (formula) {
-      if (!/^=\+?\d[\d\s().-]*$/.test(formula)) continue;
-      source = formula.slice(1);
+      const formulaPhone = formula.replace(/^=/, "").trim();
+      if (!/^\+?[\d\s().-]+$/.test(formulaPhone)) continue;
+      source = formulaPhone;
     } else if (isSpreadsheetError_(displayed[index][0])) {
       continue;
     }
