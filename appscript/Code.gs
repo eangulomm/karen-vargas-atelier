@@ -1130,7 +1130,17 @@ function normalizeValueForSheet_(header, value) {
   if (ATELIER_DATE_FIELDS.indexOf(header) >= 0) return value ? formatDate_(value) : "";
   if (ATELIER_TIME_FIELDS.indexOf(header) >= 0) return value ? formatTime_(value) : "";
   if (ATELIER_MONTH_FIELDS.indexOf(header) >= 0) return value ? formatMonth_(value) : "";
-  return value == null ? "" : value;
+  return escapeSpreadsheetText_(value);
+}
+
+function escapeSpreadsheetText_(value) {
+  if (value == null) return "";
+  if (typeof value !== "string") return value;
+
+  // Google Sheets can interpret user-entered strings beginning with these
+  // characters as formulas. Prefixing an apostrophe stores the original value
+  // as literal text; getValues() returns it without the apostrophe.
+  return /^[=+\-@]/.test(value) ? "'" + value : value;
 }
 
 function toNumber_(value) {
