@@ -75,14 +75,12 @@ window.AtelierApp = (() => {
   }
 
   function showLogin() {
-    document.body.classList.remove("app-booting");
     document.body.classList.add("auth-locked");
     UI.hideLoader();
     window.setTimeout(() => UI.qs("#loginPassword")?.focus(), 0);
   }
 
   function hideLogin() {
-    document.body.classList.remove("app-booting");
     document.body.classList.remove("auth-locked");
     const errorBox = UI.qs("#loginError");
     if (errorBox) errorBox.textContent = "";
@@ -123,7 +121,6 @@ window.AtelierApp = (() => {
       setData(fallback);
       initModules();
       renderAll();
-      hideLogin();
       if (!fallback.clientes?.length && !fallback.pedidos?.length && !fallback.pagos?.length) {
         UI.toast("Conexión no disponible", error.message || "Revisa la URL de Apps Script.", "error");
       } else {

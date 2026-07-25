@@ -17,7 +17,7 @@ const ATELIER_HEADERS = {
   Configuracion: ["clave", "valor", "descripcion"]
 };
 
-const ATELIER_SCHEMA_VERSION = "2026-07-25.6";
+const ATELIER_SCHEMA_VERSION = "2026-07-20.4";
 const ATELIER_NUMERIC_FIELDS = ["valorTotal", "primerAbono", "saldoPendiente", "monto", "costoTotal", "porcentajeGanancia", "valorGanancia", "precioSugerido", "ajuste", "precioFinal", "porcentajeAbono", "abonoRequerido", "vigenciaDias", "costoUnitario"];
 const ATELIER_DATE_FIELDS = ["fechaRegistro", "fechaEvento", "fechaLimitePago", "fechaEntrega", "fechaCreacion", "fechaActualizacion", "fechaPago", "fecha"];
 const ATELIER_TIME_FIELDS = ["hora"];
@@ -889,8 +889,6 @@ function setup_() {
     sheet.setFrozenRows(1);
   });
 
-  repairCorruptedClientPhones_();
-
   const config = readRows_("Configuracion");
   if (!config.length) {
     appendRecord_("Configuracion", {
@@ -952,7 +950,6 @@ function readRows_(name) {
       return headers.reduce(function(record, header, index) {
         const actualIndex = actualHeaders.indexOf(header);
         let value = actualIndex >= 0 ? row[actualIndex] : "";
-        if (header === "telefono" && isSpreadsheetError_(value)) value = "Revisar número";
         if (ATELIER_DATE_FIELDS.indexOf(header) >= 0) value = formatDate_(value);
         if (ATELIER_TIME_FIELDS.indexOf(header) >= 0) value = formatTime_(value);
         if (ATELIER_MONTH_FIELDS.indexOf(header) >= 0) value = formatMonth_(value);
@@ -971,7 +968,6 @@ function appendRecord_(name, record) {
   const row = headers.map(function(header) {
     return normalizeValueForSheet_(header, record[header]);
   });
-  preparePhoneCellAsText_(sheet, sheet.getLastRow() + 1, headers);
   sheet.appendRow(row);
   clearRowsCache_(name);
   return record;
@@ -1001,7 +997,6 @@ function updateRecord_(name, id, patch) {
   const row = headers.map(function(header) {
     return normalizeValueForSheet_(header, updated[header]);
   });
-  preparePhoneCellAsText_(getOrCreateSheet_(name), rowIndex, headers);
   getOrCreateSheet_(name).getRange(rowIndex, 1, 1, row.length).setValues([row]);
   clearRowsCache_(name);
   return updated;
@@ -1135,65 +1130,7 @@ function normalizeValueForSheet_(header, value) {
   if (ATELIER_DATE_FIELDS.indexOf(header) >= 0) return value ? formatDate_(value) : "";
   if (ATELIER_TIME_FIELDS.indexOf(header) >= 0) return value ? formatTime_(value) : "";
   if (ATELIER_MONTH_FIELDS.indexOf(header) >= 0) return value ? formatMonth_(value) : "";
-  if (header === "telefono") return value == null ? "" : String(value);
-  return escapeSpreadsheetText_(value);
-}
-
-function escapeSpreadsheetText_(value) {
-  if (value == null) return "";
-  if (typeof value !== "string") return value;
-
-  // Google Sheets can interpret user-entered strings beginning with these
-  // characters as formulas. Prefixing an apostrophe stores the original value
-  // as literal text; getValues() returns it without the apostrophe.
-  return /^[=+\-@]/.test(value) ? "'" + value : value;
-}
-
-function preparePhoneCellAsText_(sheet, rowIndex, headers) {
-  const phoneIndex = headers.indexOf("telefono");
-  if (phoneIndex < 0 || rowIndex < 2) return;
-  sheet.getRange(rowIndex, phoneIndex + 1).setNumberFormat("@");
-}
-
-function repairCorruptedClientPhones_() {
-  const sheet = getOrCreateSheet_("Clientes");
-  const headers = getActualHeaders_(sheet);
-  const phoneIndex = headers.indexOf("telefono");
-  const rowCount = sheet.getLastRow() - 1;
-  if (phoneIndex < 0 || rowCount <= 0) return;
-
-  const range = sheet.getRange(2, phoneIndex + 1, rowCount, 1);
-  const displayed = range.getDisplayValues();
-  const formulas = range.getFormulas();
-  let repaired = false;
-
-  for (let index = 0; index < rowCount; index += 1) {
-    const cell = range.getCell(index + 1, 1);
-    cell.setNumberFormat("@");
-    if (!isSpreadsheetError_(displayed[index][0])) continue;
-
-    const recovered = recoverPhoneFromFormula_(formulas[index][0]);
-    if (!recovered) continue;
-    cell.setValue(recovered);
-    repaired = true;
-  }
-
-  if (repaired) clearRowsCache_("Clientes");
-}
-
-function recoverPhoneFromFormula_(formula) {
-  const text = String(formula || "").trim();
-  if (!/^=\+?\d[\d\s().-]*$/.test(text)) return "";
-
-  // Sheets normaliza una entrada que comienza por "+" como una fórmula que
-  // puede empezar por "=+" o simplemente por "=". Restauramos siempre el "+"
-  // internacional y conservamos intactos espacios, paréntesis, puntos y guiones.
-  const phoneBody = text.slice(text.indexOf("=+") === 0 ? 2 : 1);
-  return "+" + phoneBody;
-}
-
-function isSpreadsheetError_(value) {
-  return /^#(?:ERROR|REF|VALUE|NAME|N\/A|NUM|DIV\/0|NULL)\b/i.test(String(value || "").trim());
+  return value == null ? "" : value;
 }
 
 function toNumber_(value) {
