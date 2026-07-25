@@ -204,6 +204,18 @@ window.PedidosModule = (() => {
         if (!payload.fechaEvento) throw new Error("La fecha del evento es obligatoria.");
         if (payload.primerAbono > payload.valorTotal) throw new Error("El primer abono no puede superar el valor total.");
 
+        const duplicate = window.AtelierApp.state.enrichedPedidos.find((item) => (
+          item.id !== order?.id
+          && item.clienteId === payload.clienteId
+          && U.normalize(item.tipoVestido) === U.normalize(payload.tipoVestido)
+          && String(item.fechaEvento || "").slice(0, 10) === String(payload.fechaEvento || "").slice(0, 10)
+          && item.estado !== "cancelado"
+        ));
+        if (duplicate) {
+          const status = U.getStatusMeta(duplicate.estado).label;
+          throw new Error(`Este vestido ya está registrado para esta clienta y fecha. Estado: ${status}. Total: ${U.formatCurrency(duplicate.valorTotal)}. Revisa el pedido existente antes de cobrarlo otra vez.`);
+        }
+
         if (isEdit) await API.updatePedido(order.id, payload);
         else await API.createPedido(payload);
 

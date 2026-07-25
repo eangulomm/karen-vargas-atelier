@@ -146,16 +146,19 @@ window.AtelierUI = (() => {
     root.setAttribute("aria-hidden", "false");
     qsa("[data-close-modal]", root).forEach((button) => button.addEventListener("click", closeModal));
     qs("#confirmActionBtn", root).addEventListener("click", async (event) => {
-      event.currentTarget.setAttribute("disabled", "disabled");
-      event.currentTarget.classList.add("is-busy");
+      const button = event.currentTarget;
+      button.setAttribute("disabled", "disabled");
+      button.classList.add("is-busy");
       try {
         await onConfirm();
         closeModal();
       } catch (error) {
         toast("Acción no completada", error.message || "Inténtalo de nuevo.", "error");
       } finally {
-        event.currentTarget.removeAttribute("disabled");
-        event.currentTarget.classList.remove("is-busy");
+        if (button.isConnected) {
+          button.removeAttribute("disabled");
+          button.classList.remove("is-busy");
+        }
       }
     });
   }

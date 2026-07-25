@@ -17,7 +17,7 @@ const ATELIER_HEADERS = {
   Configuracion: ["clave", "valor", "descripcion"]
 };
 
-const ATELIER_SCHEMA_VERSION = "2026-07-25.8";
+const ATELIER_SCHEMA_VERSION = "2026-07-25.9";
 const ATELIER_PHONE_MIGRATION_VERSION = "2026-07-25.2";
 const ATELIER_NUMERIC_FIELDS = ["valorTotal", "primerAbono", "saldoPendiente", "monto", "costoTotal", "porcentajeGanancia", "valorGanancia", "precioSugerido", "ajuste", "precioFinal", "porcentajeAbono", "abonoRequerido", "vigenciaDias", "costoUnitario"];
 const ATELIER_DATE_FIELDS = ["fechaRegistro", "fechaEvento", "fechaLimitePago", "fechaEntrega", "fechaCreacion", "fechaActualizacion", "fechaPago", "fecha"];
@@ -502,7 +502,7 @@ function createPedido_(pedido) {
     return { ok: true, message: "Pedido ya registrado", data: { record: existingById } };
   }
 
-  validatePedido_(clean);
+  validatePedido_(clean, "");
 
   const valorTotal = toNumber_(clean.valorTotal);
   const primerAbono = toNumber_(clean.primerAbono);
@@ -540,7 +540,7 @@ function updatePedido_(id, pedido) {
   setup_();
   if (!id) throw new Error("Falta el ID del pedido.");
   const clean = cleanRecord_(pedido || {});
-  validatePedido_(clean);
+  validatePedido_(clean, id);
 
   const existing = findById_("Pedidos", id);
   if (!existing) throw new Error("No se encontró el pedido.");
@@ -1055,13 +1055,36 @@ function getActualHeaders_(sheet) {
   return headers.some(function(header) { return header; }) ? headers : desired;
 }
 
-function validatePedido_(pedido) {
+function validatePedido_(pedido, excludeId) {
   if (!pedido.clienteId) throw new Error("Selecciona una clienta.");
   if (!findById_("Clientes", pedido.clienteId)) throw new Error("La clienta seleccionada no existe.");
   if (!pedido.tipoVestido) throw new Error("El tipo de vestido es obligatorio.");
   if (toNumber_(pedido.valorTotal) <= 0) throw new Error("El valor total debe ser mayor a cero.");
   if (toNumber_(pedido.primerAbono) > toNumber_(pedido.valorTotal)) throw new Error("El primer abono no puede superar el valor total.");
   if (!pedido.fechaEvento) throw new Error("La fecha del evento es obligatoria.");
+
+  const duplicate = readRows_("Pedidos").filter(function(existing) {
+    return existing.id !== excludeId
+      && existing.clienteId === pedido.clienteId
+      && normalizeComparableText_(existing.tipoVestido) === normalizeComparableText_(pedido.tipoVestido)
+      && String(existing.fechaEvento || "").slice(0, 10) === String(pedido.fechaEvento || "").slice(0, 10)
+      && existing.estado !== "cancelado";
+  })[0];
+
+  if (duplicate) {
+    const error = new Error("Este vestido ya está registrado para esta clienta y fecha. Revisa el pedido existente antes de cobrarlo otra vez.");
+    error.code = "DUPLICATE_ORDER";
+    throw error;
+  }
+}
+
+function normalizeComparableText_(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function syncPrimerAbono_(pedido, monto) {

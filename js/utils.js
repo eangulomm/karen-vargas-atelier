@@ -16,9 +16,7 @@ window.AtelierUtils = (() => {
     { value: "cancelado", label: "Cancelado", tone: "danger" }
   ];
 
-  const PAYMENT_METHODS = [
-    "Efectivo", "Transferencia", "Nequi", "Daviplata", "Tarjeta", "Otro"
-  ];
+  const PAYMENT_METHODS = ["Efectivo", "Transferencia"];
 
   const moneyFormatter = new Intl.NumberFormat(config.LOCALE, {
     style: "currency",
@@ -204,7 +202,16 @@ window.AtelierUtils = (() => {
   function matchesSearch(values, query) {
     if (!query) return true;
     const haystack = normalize(values.filter(Boolean).join(" "));
-    return haystack.includes(normalize(query));
+    const normalizedQuery = normalize(query);
+    if (haystack.includes(normalizedQuery)) return true;
+
+    const queryDigits = normalizedQuery.replace(/\D/g, "");
+    if (queryDigits.length < 4) return false;
+    const valueDigits = values
+      .filter(Boolean)
+      .map((value) => String(value).replace(/\D/g, ""))
+      .filter(Boolean);
+    return valueDigits.some((digits) => digits.includes(queryDigits));
   }
 
   function debounce(fn, wait = 180) {
